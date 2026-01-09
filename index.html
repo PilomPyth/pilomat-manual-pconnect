@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>P-Connect 999.0314-B Manual</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            background: #1a1a1a;
+            color: #333;
+        }
+        header {
+            background: #2c3e50;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        .container {
+            display: flex;
+            max-width: 1400px;
+            margin: 0 auto;
+            gap: 20px;
+            padding: 20px;
+        }
+        .sidebar {
+            width: 250px;
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .sidebar h3 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+            font-size: 16px;
+        }
+        .page-list {
+            list-style: none;
+        }
+        .page-list li {
+            margin-bottom: 8px;
+        }
+        .page-list button {
+            width: 100%;
+            padding: 8px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .page-list button:hover {
+            background: #2980b9;
+        }
+        .page-list button.active {
+            background: #27ae60;
+        }
+        #pdf-viewer {
+            flex: 1;
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 80vh;
+        }
+        canvas {
+            max-width: 100%;
+            height: auto;
+            border: 1px solid #ddd;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .controls button {
+            padding: 8px 12px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .controls button:hover {
+            background: #2980b9;
+        }
+        .page-info {
+            text-align: center;
+            color: #666;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>📖 P-Connect Manual</h1>
+        <p>Pilomat 999.0314-B - Versione BOZZA</p>
+    </header>
+    
+    <div class="container">
+        <div class="sidebar">
+            <h3>Navigazione</h3>
+            <ul class="page-list" id="page-list"></ul>
+        </div>
+        
+        <div id="pdf-viewer">
+            <div class="controls">
+                <button id="prev-btn">← Pagina precedente</button>
+                <button id="next-btn">Pagina successiva →</button>
+            </div>
+            <div id="canvas-container"></div>
+            <div class="page-info">
+                <span>Pagina <span id="page-num">1</span> di <span id="page-count">0</span></span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const pdfPath = 'BOZZA-Manuale-istruzioni-P-Connect-999.0314-B.pdf';
+        let pdfDoc = null;
+        let currentPage = 1;
+
+        const prevBtn = document.getElementById('prev-btn');
+        const nextBtn = document.getElementById('next-btn');
+        const pageNum = document.getElementById('page-num');
+        const pageCount = document.getElementById('page-count');
+        const canvasContainer = document.getElementById('canvas-container');
+        const pageList = document.getElementById('page-list');
+
+        // Carica PDF
+        pdfjsLib.getDocument(pdfPath).promise.then(pdf => {
+            pdfDoc = pdf;
+            pageCount.textContent = pdf.numPages;
+            
+            // Crea lista pagine nel sidebar
+            for (let i = 1; i <= pdf.numPages; i++) {
+                const li = document.createElement('li');
+                const btn = document.createElement('button');
+                btn.textContent = `Pagina ${i}`;
+                btn.onclick = () => goToPage(i);
+                if (i === 1) btn.classList.add('active');
+                li.appendChild(btn);
+                pageList.appendChild(li);
+            }
+            
+            renderPage(currentPage);
+        }).catch(err => {
+            canvasContainer.innerHTML = `<p style="color: red;">Errore caricamento PDF: ${err.message}</p>`;
+        });
+
+        function renderPage(num) {
+            if (!pdfDoc) return;
+            
+            pdfDoc.getPage(num).then(page => {
+                const scale = 1.5;
+                const viewport = page.getViewport({ scale });
+                
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
+                canvas.width = viewport.width;
+                canvas.height = viewport.height;
+                
+                page.render({
+                    canvasContext: context,
+                    viewport: viewport
+                });
+                
+                canvasContainer.innerHTML = '';
+                canvasContainer.appendChild(canvas);
+                
+                pageNum.textContent = num;
+                
+                // Aggiorna bottoni sidebar
+                document.querySelectorAll('.page-list button').forEach((btn, idx) => {
+                    btn.classList.toggle('active', idx + 1 === num);
+                });
+                
+                // Disabilita bottoni prev/next se necessario
+                prevBtn.disabled = num === 1;
+                nextBtn.disabled = num === pdfDoc.numPages;
+            });
+        }
+
+        function goToPage(num) {
+            if (num > 0 && num <= pdfDoc.numPages) {
+                currentPage = num;
+                renderPage(currentPage);
+            }
+        }
+
+        prevBtn.addEventListener('click', () => {
+            if (currentPage > 1) {
+                currentPage--;
+                renderPage(currentPage);
+            }
+        });
+
+        nextBtn.addEventListener('click', () => {
+            if (currentPage < pdfDoc.numPages) {
+                currentPage++;
+                renderPage(currentPage);
+            }
+        });
+    </script>
+</body>
+</html>
